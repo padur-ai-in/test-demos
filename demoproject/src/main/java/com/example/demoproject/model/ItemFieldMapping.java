@@ -11,6 +11,10 @@ public class ItemFieldMapping {
     private String defaultValue;
     private CollectionMapping collection;
 
+    public boolean isNestedCollection() {
+        return collection != null;
+    }
+
     @Override
     public String toString() {
         return "ItemFieldMapping [source=" + source + ", targetPrefix=" + targetPrefix + ", targetSuffix="
@@ -18,6 +22,9 @@ public class ItemFieldMapping {
                 + defaultValue + ", collection=" + collection + "]";
     }
 
+    // Getters
+    public String getSource() { return source; }
+    public String getTargetPrefix() { return targetPrefix; }
     public void setSource(String source) {
         this.source = source;
     }
@@ -46,13 +53,6 @@ public class ItemFieldMapping {
         this.collection = collection;
     }
 
-    public boolean isNestedCollection() {
-        return collection != null;
-    }
-
-    // Getters
-    public String getSource() { return source; }
-    public String getTargetPrefix() { return targetPrefix; }
     public String getTargetSuffix() { return targetSuffix; }
     public Object getTransform() { return transform; }
     public Condition getCondition() { return condition; }

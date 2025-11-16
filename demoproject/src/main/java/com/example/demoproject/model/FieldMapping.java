@@ -4,14 +4,20 @@ package com.example.demoproject.model;
 
 public class FieldMapping {
     private String source;
-    @Override
-    public String toString() {
-        return "FieldMapping [source=" + source + ", target=" + target + ", transform=" + transform + ", condition="
-                + condition + ", defaultValue=" + defaultValue + ", collection=" + collection + "]";
-    }
     private String target;
     private Object transform;
     private Condition condition;
+    private String defaultValue;
+    private CollectionMapping collection;
+
+    public boolean isScalar() {
+        return source != null && target != null;
+    }
+
+    public boolean isCollection() {
+        return collection != null;
+    }
+
     public void setSource(String source) {
         this.source = source;
     }
@@ -35,21 +41,17 @@ public class FieldMapping {
     public void setCollection(CollectionMapping collection) {
         this.collection = collection;
     }
-    private String defaultValue;
-    private CollectionMapping collection;
-
-    public boolean isScalar() {
-        return source != null && target != null;
-    }
-
-    public boolean isCollection() {
-        return collection != null;
-    }
 
     // Getters
     public String getSource() { return source; }
     public String getTarget() { return target; }
     public Object getTransform() { return transform; }
+    @Override
+    public String toString() {
+        return "FieldMapping [source=" + source + ", target=" + target + ", transform=" + transform + ", condition="
+                + condition + ", defaultValue=" + defaultValue + ", collection=" + collection + "]";
+    }
+
     public Condition getCondition() { return condition; }
     public String getDefaultValue() { return defaultValue; }
     public CollectionMapping getCollection() { return collection; }

@@ -4,12 +4,16 @@ import com.example.demoproject.SensitiveFieldDetector;
 import com.example.demoproject.model.*;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.FileInputStream;
-import java.io.IOException;
+
 import java.io.InputStream;
 import java.util.*;
 
@@ -23,9 +27,8 @@ public class PdfFieldMapper {
 
     public void mapJsonToPdf(String yamlPath, String jsonInput, String pdfPath, String outputPath) throws Exception {
         // Load config
-        org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml(
-            new org.yaml.snakeyaml.constructor.Constructor(MappingConfig.class)
-        );
+        Yaml yaml = new Yaml();
+
         try (InputStream in = new FileInputStream(yamlPath)) {
             MappingConfig config = yaml.load(in);
             DocumentContext rootJson = JsonPath.parse(jsonInput);
@@ -47,7 +50,16 @@ public class PdfFieldMapper {
 
             PDDocument doc = null;
             PDAcroForm form = null;
-         
+            if (!dryRun) {
+                //doc = PDDocument.load(new FileInputStream(pdfPath));
+                InputStream is = new FileInputStream(pdfPath);
+                doc = Loader.loadPDF(new RandomAccessReadBuffer(is)); 
+                              
+                form = doc.getDocumentCatalog().getAcroForm();
+                if (form == null) {
+                    throw new IllegalStateException("PDF has no fillable form");
+                }
+            }
 
             // Process all mappings
             for (FieldMapping mapping : config.getMappings()) {
@@ -55,12 +67,11 @@ public class PdfFieldMapper {
                     processScalar(mapping, rootJson, contextCache, form);
                 } else if (mapping.isCollection()) {
                     processCollection(
-                        mapping.getCollection(),
-                        rootJson,
-                        contextCache,
-                        form,
-                        "", null, 0
-                    );
+                            mapping.getCollection(),
+                            rootJson,
+                            contextCache,
+                            form,
+                            "", null, 0);
                 }
             }
 
@@ -76,12 +87,13 @@ public class PdfFieldMapper {
 
     private Object resolveValue(String sourcePath, DocumentContext rootCtx, Map<String, Object> contextCache) {
         if (sourcePath.startsWith("@")) {
-            String[] parts = sourcePath.substring(1).split("\.", 2);
+            String[] parts = sourcePath.substring(1).split("\\.", 2);
             String contextName = parts[0];
             String subPath = parts.length > 1 ? parts[1] : null;
 
             Object contextValue = contextCache.get(contextName);
-            if (contextValue == null) return null;
+            if (contextValue == null)
+                return null;
 
             if (subPath == null) {
                 return contextValue;
@@ -104,13 +116,12 @@ public class PdfFieldMapper {
     }
 
     private void processScalar(FieldMapping mapping, DocumentContext rootCtx,
-                              Map<String, Object> contextCache, PDAcroForm form) throws IOException {
+            Map<String, Object> contextCache, PDAcroForm form) {
         Object rawValue = resolveValue(mapping.getSource(), rootCtx, contextCache);
         boolean conditionPassed = ConditionEvaluator.evaluate(
-            mapping.getCondition(), 
-            rootCtx, 
-            rawValue
-        );
+                mapping.getCondition(),
+                rootCtx,
+                rawValue);
 
         if (!conditionPassed) {
             if (dryRun) {
@@ -126,16 +137,18 @@ public class PdfFieldMapper {
         }
 
         if (dryRun) {
-            String safeVal = SensitiveFieldDetector.isSensitive(mapping.getTarget()) ?
-                SensitiveFieldDetector.maskValue(finalValue, mapping.getTarget().contains("email")) :
-                finalValue;
+            String safeVal = SensitiveFieldDetector.isSensitive(mapping.getTarget())
+                    ? SensitiveFieldDetector.maskValue(finalValue, mapping.getTarget().contains("email"))
+                    : finalValue;
             System.out.println("✅ " + mapping.getTarget() + " = '" + safeVal + "'");
-        } else if (form != null) {
-            PDField field = form.getField(mapping.getTarget());
-            if (field != null) {
-                field.setValue(finalValue);
-            }
-        }
+        } /*
+           * else if (form != null) {
+           * PDField field = form.getField(mapping.getTarget());
+           * if (field != null) {
+           * field.setValue(finalValue);
+           * }
+           * }
+           */
     }
 
     private void processCollection(
@@ -145,11 +158,10 @@ public class PdfFieldMapper {
             PDAcroForm form,
             String currentPrefix,
             Object parentItem,
-            int outerIndex
-    ) throws Exception {
-        String resolvedPrefix = coll.getTargetPrefix() != null ?
-            coll.getTargetPrefix().replace("${index}", String.valueOf(outerIndex)) :
-            currentPrefix;
+            int outerIndex) throws Exception {
+        String resolvedPrefix = coll.getTargetPrefix() != null
+                ? coll.getTargetPrefix().replace("${index}", String.valueOf(outerIndex))
+                : currentPrefix;
 
         List<?> items;
         if (coll.getSource().startsWith("@")) {
@@ -161,24 +173,23 @@ public class PdfFieldMapper {
             items = (raw instanceof List) ? (List<?>) raw : Collections.emptyList();
         }
 
-        if (items == null) items = Collections.emptyList();
+        if (items == null)
+            items = Collections.emptyList();
 
         // Apply collection-level filter
         List<Object> filteredItems = new ArrayList<>();
         for (Object item : items) {
             boolean passes = ConditionEvaluator.evaluate(
-                coll.getCondition(),
-                JsonPath.parse(item),
-                item
-            );
+                    coll.getCondition(),
+                    JsonPath.parse(item),
+                    item);
             if (passes) {
                 filteredItems.add(item);
             }
         }
 
-        int limit = coll.getMaxItems() != null ?
-            Math.min(filteredItems.size(), coll.getMaxItems()) :
-            filteredItems.size();
+        int limit = coll.getMaxItems() != null ? Math.min(filteredItems.size(), coll.getMaxItems())
+                : filteredItems.size();
 
         for (int i = 0; i < limit; i++) {
             Object item = filteredItems.get(i);
@@ -189,17 +200,16 @@ public class PdfFieldMapper {
                     String innerPrefix = resolvedPrefix;
                     if (itemMap.getCollection().getTargetPrefix() != null) {
                         innerPrefix = itemMap.getCollection().getTargetPrefix()
-                            .replace("${index}", String.valueOf(innerIndex));
+                                .replace("${index}", String.valueOf(innerIndex));
                     }
                     processCollection(
-                        itemMap.getCollection(),
-                        rootJson,
-                        contextCache,
-                        form,
-                        innerPrefix,
-                        item,
-                        innerIndex
-                    );
+                            itemMap.getCollection(),
+                            rootJson,
+                            contextCache,
+                            form,
+                            innerPrefix,
+                            item,
+                            innerIndex);
                 } else {
                     Object rawValue = null;
                     try {
@@ -209,12 +219,12 @@ public class PdfFieldMapper {
                     }
 
                     boolean fieldConditionPassed = ConditionEvaluator.evaluate(
-                        itemMap.getCondition(),
-                        JsonPath.parse(item),
-                        rawValue
-                    );
+                            itemMap.getCondition(),
+                            JsonPath.parse(item),
+                            rawValue);
 
-                    if (!fieldConditionPassed) continue;
+                    if (!fieldConditionPassed)
+                        continue;
 
                     Object transformed = DataTransformer.applyTransform(rawValue, itemMap.getTransform());
                     String finalValue = (transformed != null) ? transformed.toString() : "";
@@ -226,13 +236,14 @@ public class PdfFieldMapper {
                     String targetField = resolvedPrefix + innerIndex + suffix;
 
                     if (dryRun) {
-                        String safeVal = SensitiveFieldDetector.isSensitive(targetField) ?
-                            SensitiveFieldDetector.maskValue(finalValue, targetField.contains("email")) :
-                            finalValue;
+                        String safeVal = SensitiveFieldDetector.isSensitive(targetField)
+                                ? SensitiveFieldDetector.maskValue(finalValue, targetField.contains("email"))
+                                : finalValue;
                         System.out.println("✅ " + targetField + " = '" + safeVal + "'");
                     } else if (form != null) {
                         PDField field = form.getField(targetField);
-                        if (field != null) field.setValue(finalValue);
+                        if (field != null)
+                            field.setValue(finalValue);
                     }
                 }
             }
