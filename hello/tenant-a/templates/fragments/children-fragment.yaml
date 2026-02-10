@@ -1,4 +1,4 @@
-templateId: primary-fragment
+templateId: children-fragment
 description: Base enrollment template with common sections
 sections:
   - sectionId: applicant-info
@@ -9,4 +9,3 @@ sections:
         fields:
           applicationId: "applicationId"
           primaryFirstName: "primaryFirstName"
-          primaryLastName: "primaryLastName"

@@ -2,6 +2,8 @@ templateId: base-enrollment
 description: Base enrollment template with common sections
 includedFragments:
   - fragments/primary-fragment
+  - fragments/spouse-fragment
+  - fragments/children-fragment
   
 
 sections:

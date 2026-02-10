@@ -3,6 +3,8 @@ description: Base enrollment template with common sections
 
 includedFragments:
   - fragments/primary-fragment
+  - fragments/spouse-fragment
+  - fragments/children-fragment
   
 sections:
   - sectionId: applicant-info
@@ -29,7 +31,3 @@ sections:
             childLastName: "lastName"
             childDob: "dob"
   
-  - sectionId: signature-page
-    type: FREEMARKER
-    templatePath: signature-page.ftl
-    order: 100

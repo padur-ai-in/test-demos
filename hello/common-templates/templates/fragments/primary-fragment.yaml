@@ -3,3 +3,9 @@ description: Base enrollment template with common sections
 sections:
   - sectionId: applicant-info
     type: ACROFORM
+    fieldMappingGroups:
+      - mappingType: JSONPATH
+        basePath: "$.application"
+        fields:
+          applicationId: "applicationId"
+          primaryFirstName: "primaryFirstName"
